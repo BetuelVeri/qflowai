@@ -189,17 +189,19 @@ const nowTime = () => new Date().toLocaleTimeString("en-US",{hour:"2-digit",minu
 const ago     = ts => { const d=Math.floor((Date.now()-ts)/60000); return d===0?"just now":d===1?"1 min ago":`${d} min ago`; };
 
 async function aiTriage(symptoms, age, vitals) {
-  const r = await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,
-      messages:[{role:"user",content:`Hospital triage AI. Return ONLY JSON, no markdown.
-Patient: Age ${age}, Symptoms: ${symptoms}, Vitals: ${vitals||"not provided"}
-{"triage_level":"CRITICAL"|"URGENT"|"MODERATE"|"ROUTINE","priority_score":<1-100>,"reasoning":"<1-2 sentences>","recommended_action":"<brief>","estimated_wait_minutes":<number>}`}]
-    })
+  // Calls Supabase Edge Function — runs Anthropic API server-side, no CORS issues
+  const r = await fetch("https://qrtqrihjwffcccvibalo.supabase.co/functions/v1/triage", {
+    method: "POST",
+    headers: {
+      "Content-Type":  "application/json",
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFydHFyaWhqd2ZmY2NjdmliYWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMTI3MDMsImV4cCI6MjA4ODc4ODcwM30.GtXVmAPh0fAsZ9eObKrKamBnVmZuVcPttuZjqo9tZDc",
+      "apikey":        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFydHFyaWhqd2ZmY2NjdmliYWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMTI3MDMsImV4cCI6MjA4ODc4ODcwM30.GtXVmAPh0fAsZ9eObKrKamBnVmZuVcPttuZjqo9tZDc",
+    },
+    body: JSON.stringify({ symptoms, age, vitals }),
   });
   const d = await r.json();
-  try{return JSON.parse((d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim());}
-  catch{return{triage_level:"ROUTINE",priority_score:10,reasoning:"Manual assessment needed.",recommended_action:"Standard consultation",estimated_wait_minutes:45};}
+  if (d.triage_level) return d;
+  return { triage_level:"ROUTINE", priority_score:10, reasoning:"Manual assessment needed.", recommended_action:"Standard consultation", estimated_wait_minutes:45 };
 }
 
 // ══════════════════════════════════════════════════════════════════
