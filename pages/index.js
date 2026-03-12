@@ -495,7 +495,7 @@ function Dash({user,onLogout,showToast}){
     try{
       const ai=await aiTriage(form.symptoms,form.age,form.vitals);
       const tn=String(tkRef.current++).padStart(3,"0");
-      const p={id:genId(),name:form.name.trim(),age:parseInt(form.age),phone:form.phone.trim(),symptoms:form.symptoms.trim(),vitals:form.vitals.trim(),triage_level:ai.triage_level||"ROUTINE",priority_score:ai.priority_score||10,reasoning:ai.reasoning||"",recommended_action:ai.recommended_action||"",estimated_wait_minutes:ai.estimated_wait_minutes||45,arrivalTime:Date.now(),ticket:`#${tn}`};
+      const p={id:genId(),name:form.name.trim(),age:parseInt(form.age),phone:form.phone.trim(),symptoms:form.symptoms.trim(),vitals:form.vitals.trim(),triage_level:ai.triage_level||"ROUTINE",priority_score:ai.priority_score||10,reasoning:ai.reasoning||"",recommended_action:ai.recommended_action||"",estimated_wait_minutes:ai.estimated_wait_minutes??45,arrivalTime:Date.now(),ticket:`#${tn}`};
       setQueue(prev=>[...prev,p]);
       setForm({name:"",age:"",phone:"",symptoms:"",vitals:""});
       setTab("queue");
