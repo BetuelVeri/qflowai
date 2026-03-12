@@ -188,20 +188,52 @@ const genId   = () => `P-${++ctr}`;
 const nowTime = () => new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
 const ago     = ts => { const d=Math.floor((Date.now()-ts)/60000); return d===0?"just now":d===1?"1 min ago":`${d} min ago`; };
 
-async function aiTriage(symptoms, age, vitals) {
-  // Calls Supabase Edge Function — runs Anthropic API server-side, no CORS issues
-  const r = await fetch("https://qrtqrihjwffcccvibalo.supabase.co/functions/v1/triage", {
-    method: "POST",
-    headers: {
-      "Content-Type":  "application/json",
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFydHFyaWhqd2ZmY2NjdmliYWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMTI3MDMsImV4cCI6MjA4ODc4ODcwM30.GtXVmAPh0fAsZ9eObKrKamBnVmZuVcPttuZjqo9tZDc",
-      "apikey":        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFydHFyaWhqd2ZmY2NjdmliYWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMTI3MDMsImV4cCI6MjA4ODc4ODcwM30.GtXVmAPh0fAsZ9eObKrKamBnVmZuVcPttuZjqo9tZDc",
-    },
-    body: JSON.stringify({ symptoms, age, vitals }),
-  });
-  const d = await r.json();
-  if (d.triage_level) return d;
-  return { triage_level:"ROUTINE", priority_score:10, reasoning:"Manual assessment needed.", recommended_action:"Standard consultation", estimated_wait_minutes:45 };
+function aiTriage(symptoms, age, vitals) {
+  // Rule-based triage engine — instant, no API key needed
+  const s = (symptoms + " " + (vitals || "")).toLowerCase();
+  const a = parseInt(age) || 30;
+
+  const critical = ["chest pain","cardiac arrest","heart attack","stemi","not breathing",
+    "unconscious","unresponsive","severe bleeding","major trauma","stroke",
+    "seizure","anaphylaxis","allergic reaction","gunshot","stab wound",
+    "radiating to left arm","diaphoresis","sweating","difficulty breathing",
+    "respiratory failure","septic shock","severe hypotension","code blue"];
+  const urgent = ["high fever","39","40","meningitis","neck stiffness","photophobia",
+    "severe headache","fractured","fracture","broken","head injury",
+    "abdominal pain","vomiting blood","blood in stool","overdose",
+    "severe pain","acute","shortness of breath","confusion","disoriented",
+    "high blood pressure","160","170","180","persistent chest"];
+  const moderate = ["fever","38","moderate pain","infection","laceration","sprain","burn",
+    "urinary","uti","ear pain","eye pain","rash","swelling","dizziness",
+    "nausea","vomiting","diarrhea","back pain","migraine","asthma"];
+
+  const ageBoost = (parseInt(age) >= 65 || parseInt(age) <= 5) ? 10 : 0;
+  const hasCritical = critical.some(k => s.includes(k));
+  const hasUrgent   = urgent.some(k => s.includes(k));
+  const hasModerate = moderate.some(k => s.includes(k));
+
+  if (hasCritical) {
+    const score = Math.min(99, 85 + ageBoost + Math.floor(Math.random()*8));
+    return Promise.resolve({ triage_level:"CRITICAL", priority_score:score,
+      reasoning:"Symptoms indicate a potentially life-threatening condition requiring immediate intervention.",
+      recommended_action:"Immediate resuscitation bay — STAT", estimated_wait_minutes:0 });
+  }
+  if (hasUrgent) {
+    const score = Math.min(79, 55 + ageBoost + Math.floor(Math.random()*15));
+    return Promise.resolve({ triage_level:"URGENT", priority_score:score,
+      reasoning:"Patient presents with urgent symptoms requiring prompt assessment and treatment.",
+      recommended_action:"Assessment within 15 minutes", estimated_wait_minutes:15 });
+  }
+  if (hasModerate) {
+    const score = Math.min(49, 28 + ageBoost + Math.floor(Math.random()*12));
+    return Promise.resolve({ triage_level:"MODERATE", priority_score:score,
+      reasoning:"Condition is uncomfortable but not immediately life-threatening.",
+      recommended_action:"Assessment within 30 minutes", estimated_wait_minutes:30 });
+  }
+  const score = Math.min(24, 8 + ageBoost + Math.floor(Math.random()*8));
+  return Promise.resolve({ triage_level:"ROUTINE", priority_score:score,
+    reasoning:"Non-urgent presentation suitable for standard outpatient consultation.",
+    recommended_action:"Standard outpatient consultation", estimated_wait_minutes:60 });
 }
 
 // ══════════════════════════════════════════════════════════════════
